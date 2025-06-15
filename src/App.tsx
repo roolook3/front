@@ -24,7 +24,7 @@ function App() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Default API URL - UPDATE THIS WITH YOUR CURRENT NGROK URL
+  // Your confirmed ngrok URL
   const DEFAULT_API_URL = 'https://certain-monarch-vertically.ngrok-free.app';
   const API_URL = customApiUrl || DEFAULT_API_URL;
 
@@ -113,7 +113,7 @@ function App() {
       }, 120000); // 2 minute timeout
 
       const requestHeaders = {
-        // Multiple ways to bypass ngrok warning
+        // Critical header to bypass ngrok warning page
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'AudioTranscriptionApp/1.0',
         'Accept': 'application/json',
@@ -168,14 +168,14 @@ function App() {
         if (errorText.includes('ngrok.com') || errorText.includes('Visit Site') || errorText.includes('ngrok-skip-browser-warning')) {
           console.log('Detected ngrok warning page');
           setShowNgrokWarning(true);
-          throw new Error('Please visit the API URL first to bypass the ngrok warning page');
+          throw new Error('You need to visit the API URL first to bypass the ngrok warning page. Click the "Visit API URL" button below.');
         }
         
         // Check for 405 Method Not Allowed specifically
         if (response.status === 405) {
-          console.log('405 Method Not Allowed - likely ngrok URL issue');
+          console.log('405 Method Not Allowed - likely ngrok warning page issue');
           setShowNgrokWarning(true);
-          throw new Error('The API URL may be outdated. Please check your ngrok URL and update it in the settings.');
+          throw new Error('The ngrok warning page is blocking the request. Please visit the API URL first to bypass it.');
         }
         
         const fullError = {
@@ -244,10 +244,10 @@ function App() {
         if (error.name === 'AbortError') {
           errorMessage = 'Request timed out. Please try again with a shorter audio file.';
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('TypeError')) {
-          // This is likely the ngrok warning page issue or outdated URL
-          errorMessage = 'Unable to connect to the transcription service. This is likely due to an outdated ngrok URL. Please update your API URL in the settings.';
+          // This is likely the ngrok warning page issue
+          errorMessage = 'Unable to connect to the transcription service. You need to visit the API URL first to bypass the ngrok warning page.';
           setShowNgrokWarning(true);
-        } else if (error.message.includes('ngrok warning') || error.message.includes('API URL may be outdated')) {
+        } else if (error.message.includes('ngrok warning') || error.message.includes('bypass')) {
           errorMessage = error.message;
           setShowNgrokWarning(true);
         } else {
@@ -262,7 +262,7 @@ function App() {
         };
         // For non-Error objects, also assume it might be a network issue
         setShowNgrokWarning(true);
-        errorMessage = 'Network error occurred. Please check your API URL in the settings.';
+        errorMessage = 'Network error occurred. Please visit the API URL to bypass the ngrok warning page.';
       }
       
       setTranscription({ 
@@ -428,9 +428,9 @@ function App() {
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-medium text-amber-900 mb-2">Connection Issue Detected</h3>
+                  <h3 className="font-medium text-amber-900 mb-2">Ngrok Warning Page Detected</h3>
                   <p className="text-amber-800 mb-4">
-                    This error usually means your ngrok URL has changed or you need to bypass the ngrok warning page.
+                    You need to visit the API URL first to bypass the ngrok warning page. This is required for free ngrok accounts.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 mb-4">
                     <a
@@ -452,17 +452,17 @@ function App() {
                       onClick={() => setShowNgrokWarning(false)}
                       className="px-4 py-2 bg-white hover:bg-gray-50 text-amber-800 rounded-lg font-medium border border-amber-300 transition-colors duration-200"
                     >
-                      Dismiss
+                      I've visited the URL
                     </button>
                   </div>
                   <div className="text-sm text-amber-700">
-                    <p className="font-medium">Troubleshooting steps:</p>
+                    <p className="font-medium">Step-by-step instructions:</p>
                     <ol className="list-decimal list-inside mt-1 space-y-1">
-                      <li>Check if your ngrok URL has changed (free accounts get new URLs when restarted)</li>
-                      <li>If the URL changed, click "Update API URL" above to set the new one</li>
-                      <li>Click "Visit API URL" and bypass the ngrok warning page if shown</li>
-                      <li>Make sure your FastAPI server is still running</li>
-                      <li>Try transcribing again</li>
+                      <li>Click "Visit API URL" above</li>
+                      <li>On the ngrok warning page, click "Visit Site"</li>
+                      <li>You should see a simple message or JSON response from your API</li>
+                      <li>Come back here and click "I've visited the URL"</li>
+                      <li>Try transcribing your audio again</li>
                     </ol>
                   </div>
                 </div>
@@ -620,14 +620,13 @@ function App() {
                   )}
                   
                   <div className="mt-3 text-sm text-red-600">
-                    <p className="font-medium">Troubleshooting tips:</p>
+                    <p className="font-medium">Most common solutions:</p>
                     <ul className="list-disc list-inside mt-1 space-y-1">
-                      <li>Check if your ngrok URL has changed (click API Settings above)</li>
-                      <li>Make sure your FastAPI server is running</li>
-                      <li>Visit the API URL to bypass the ngrok warning page</li>
-                      <li>Try with a smaller audio file</li>
-                      <li>Ensure the audio file is in a supported format</li>
-                      <li>Check the browser console for additional error details</li>
+                      <li><strong>Visit the API URL first</strong> - Click the link above to bypass ngrok warning</li>
+                      <li>Make sure your FastAPI server is running on port 8000</li>
+                      <li>Check if your ngrok tunnel is still active</li>
+                      <li>Try with a smaller audio file (under 10MB)</li>
+                      <li>Ensure the audio file is in MP3, WAV, or M4A format</li>
                     </ul>
                   </div>
                 </div>
