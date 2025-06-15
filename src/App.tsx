@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileAudio, Play, Pause, Download, Copy, AlertCircle, CheckCircle, Loader2, ExternalLink, Bug } from 'lucide-react';
+import { Upload, FileAudio, Play, Pause, Download, Copy, AlertCircle, CheckCircle, Loader2, ExternalLink, Bug, Settings } from 'lucide-react';
 
 interface TranscriptionState {
   status: 'idle' | 'uploading' | 'processing' | 'success' | 'error';
@@ -18,11 +18,15 @@ function App() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showNgrokWarning, setShowNgrokWarning] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [showApiSettings, setShowApiSettings] = useState(false);
+  const [customApiUrl, setCustomApiUrl] = useState('');
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const API_URL = 'https://certain-monarch-vertically.ngrok-free.app';
+  // Default API URL - UPDATE THIS WITH YOUR CURRENT NGROK URL
+  const DEFAULT_API_URL = 'https://certain-monarch-vertically.ngrok-free.app';
+  const API_URL = customApiUrl || DEFAULT_API_URL;
 
   const handleFileSelect = (selectedFile: File) => {
     if (!selectedFile.type.startsWith('audio/')) {
@@ -92,6 +96,7 @@ function App() {
     if (!file) return;
 
     console.log('Starting transcription for file:', file.name, 'Size:', file.size);
+    console.log('Using API URL:', API_URL);
     setTranscription({ status: 'uploading', progress: 0 });
 
     try {
@@ -166,6 +171,13 @@ function App() {
           throw new Error('Please visit the API URL first to bypass the ngrok warning page');
         }
         
+        // Check for 405 Method Not Allowed specifically
+        if (response.status === 405) {
+          console.log('405 Method Not Allowed - likely ngrok URL issue');
+          setShowNgrokWarning(true);
+          throw new Error('The API URL may be outdated. Please check your ngrok URL and update it in the settings.');
+        }
+        
         const fullError = {
           status: response.status,
           statusText: response.statusText,
@@ -232,10 +244,10 @@ function App() {
         if (error.name === 'AbortError') {
           errorMessage = 'Request timed out. Please try again with a shorter audio file.';
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('TypeError')) {
-          // This is likely the ngrok warning page issue
-          errorMessage = 'Unable to connect to the transcription service. Please visit the API URL first to bypass the ngrok warning page.';
+          // This is likely the ngrok warning page issue or outdated URL
+          errorMessage = 'Unable to connect to the transcription service. This is likely due to an outdated ngrok URL. Please update your API URL in the settings.';
           setShowNgrokWarning(true);
-        } else if (error.message.includes('ngrok warning')) {
+        } else if (error.message.includes('ngrok warning') || error.message.includes('API URL may be outdated')) {
           errorMessage = error.message;
           setShowNgrokWarning(true);
         } else {
@@ -250,6 +262,7 @@ function App() {
         };
         // For non-Error objects, also assume it might be a network issue
         setShowNgrokWarning(true);
+        errorMessage = 'Network error occurred. Please check your API URL in the settings.';
       }
       
       setTranscription({ 
@@ -305,8 +318,17 @@ function App() {
     setTranscription({ status: 'idle' });
     setShowNgrokWarning(false);
     setShowDebugInfo(false);
+    setShowApiSettings(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const updateApiUrl = () => {
+    if (customApiUrl.trim()) {
+      setShowApiSettings(false);
+      setShowNgrokWarning(false);
+      console.log('API URL updated to:', customApiUrl);
     }
   };
 
@@ -324,20 +346,93 @@ function App() {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Upload your audio files and get accurate transcriptions powered by Whisper AI
           </p>
+          
+          {/* API Settings Button */}
+          <div className="mt-6">
+            <button
+              onClick={() => setShowApiSettings(!showApiSettings)}
+              className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 border border-gray-200"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              API Settings
+            </button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto">
+          {/* API Settings Panel */}
+          {showApiSettings && (
+            <div className="mb-8 bg-blue-50 border border-blue-200 rounded-2xl p-6">
+              <div className="flex items-start space-x-3">
+                <Settings className="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-medium text-blue-900 mb-2">Update API URL</h3>
+                  <p className="text-blue-800 mb-4">
+                    If you're getting connection errors, your ngrok URL may have changed. 
+                    Check your ngrok terminal for the current HTTPS forwarding URL.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-900 mb-1">
+                        Current API URL:
+                      </label>
+                      <code className="block p-2 bg-blue-100 rounded text-sm text-blue-800 break-all">
+                        {API_URL}
+                      </code>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-blue-900 mb-1">
+                        New API URL:
+                      </label>
+                      <input
+                        type="url"
+                        value={customApiUrl}
+                        onChange={(e) => setCustomApiUrl(e.target.value)}
+                        placeholder="https://your-new-ngrok-url.ngrok-free.app"
+                        className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={updateApiUrl}
+                        disabled={!customApiUrl.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium transition-colors duration-200"
+                      >
+                        Update URL
+                      </button>
+                      <button
+                        onClick={() => setShowApiSettings(false)}
+                        className="px-4 py-2 bg-white hover:bg-gray-50 text-blue-800 rounded-lg font-medium border border-blue-300 transition-colors duration-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 text-sm text-blue-700">
+                    <p className="font-medium">How to get your ngrok URL:</p>
+                    <ol className="list-decimal list-inside mt-1 space-y-1">
+                      <li>Check the terminal where you ran <code>ngrok http 8000</code></li>
+                      <li>Look for the "Forwarding" line with an HTTPS URL</li>
+                      <li>Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)</li>
+                      <li>Paste it above and click "Update URL"</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Ngrok Warning Notice */}
           {showNgrokWarning && (
             <div className="mb-8 bg-amber-50 border border-amber-200 rounded-2xl p-6">
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-medium text-amber-900 mb-2">API Setup Required</h3>
+                  <h3 className="font-medium text-amber-900 mb-2">Connection Issue Detected</h3>
                   <p className="text-amber-800 mb-4">
-                    You need to visit the API URL first to bypass the ngrok warning page. This is a one-time setup.
+                    This error usually means your ngrok URL has changed or you need to bypass the ngrok warning page.
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
                     <a
                       href={API_URL}
                       target="_blank"
@@ -348,19 +443,26 @@ function App() {
                       Visit API URL
                     </a>
                     <button
+                      onClick={() => setShowApiSettings(true)}
+                      className="px-4 py-2 bg-white hover:bg-gray-50 text-amber-800 rounded-lg font-medium border border-amber-300 transition-colors duration-200"
+                    >
+                      Update API URL
+                    </button>
+                    <button
                       onClick={() => setShowNgrokWarning(false)}
                       className="px-4 py-2 bg-white hover:bg-gray-50 text-amber-800 rounded-lg font-medium border border-amber-300 transition-colors duration-200"
                     >
-                      I've visited the URL
+                      Dismiss
                     </button>
                   </div>
-                  <div className="mt-4 text-sm text-amber-700">
-                    <p className="font-medium">Instructions:</p>
+                  <div className="text-sm text-amber-700">
+                    <p className="font-medium">Troubleshooting steps:</p>
                     <ol className="list-decimal list-inside mt-1 space-y-1">
-                      <li>Click "Visit API URL" above</li>
-                      <li>On the ngrok warning page, click "Visit Site"</li>
-                      <li>Come back here and click "I've visited the URL"</li>
-                      <li>Try transcribing your audio again</li>
+                      <li>Check if your ngrok URL has changed (free accounts get new URLs when restarted)</li>
+                      <li>If the URL changed, click "Update API URL" above to set the new one</li>
+                      <li>Click "Visit API URL" and bypass the ngrok warning page if shown</li>
+                      <li>Make sure your FastAPI server is still running</li>
+                      <li>Try transcribing again</li>
                     </ol>
                   </div>
                 </div>
@@ -520,11 +622,11 @@ function App() {
                   <div className="mt-3 text-sm text-red-600">
                     <p className="font-medium">Troubleshooting tips:</p>
                     <ul className="list-disc list-inside mt-1 space-y-1">
-                      <li>Make sure your API server is running</li>
-                      <li>Check if the ngrok URL is accessible</li>
+                      <li>Check if your ngrok URL has changed (click API Settings above)</li>
+                      <li>Make sure your FastAPI server is running</li>
+                      <li>Visit the API URL to bypass the ngrok warning page</li>
                       <li>Try with a smaller audio file</li>
                       <li>Ensure the audio file is in a supported format</li>
-                      <li>If you see the ngrok warning page, click "Visit Site" first</li>
                       <li>Check the browser console for additional error details</li>
                     </ul>
                   </div>
